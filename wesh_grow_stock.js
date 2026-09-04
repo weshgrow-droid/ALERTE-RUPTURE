@@ -1,7 +1,7 @@
 // ==================== CONFIGURATION ====================
 // Numéro de version affiché dans l'appli (footer + console) pour vérifier en
 // un coup d'œil que le déploiement est bien à jour après une mise à jour.
-const APP_VERSION = 'v2026-09-03-01h45-floorzero';
+const APP_VERSION = 'v2026-09-03-02h00-manque';
 console.log('Wesh Grow — Disponibilités & Prévisions —', APP_VERSION);
 
 // Même principe d'accès que l'appli Alertes : connexion Google individuelle,
@@ -932,11 +932,14 @@ function projectVarietyFull(key){
     // inchangée pour montrer la vraie demande, mais le déficit ne se
     // reporte pas sur les jours suivants comme un "stock négatif" qu'on
     // devrait — le lendemain repart de 0, pas d'un solde négatif. On garde
-    // une trace du déficit (isShortfall) pour continuer à alerter en rouge.
+    // une trace du déficit (isShortfall) pour continuer à alerter en rouge,
+    // et sa valeur exacte (rawStock, négative) pour estimer la production
+    // manquante — utile même si le stock affiché reste plafonné à 0.
     const isShortfall = running < 0;
+    const rawStock = running;
     running = Math.max(0, running);
     const dow = serialToDate(d).getUTCDay();
-    days.push({ date: d, stock: running, production: prod, vente, venteReelle, isMonday: dow===1, isFriday: dow===5, isWeekend: dow===0 || dow===6, isOverride: hasOverride, isShortfall });
+    days.push({ date: d, stock: running, rawStock, production: prod, vente, venteReelle, isMonday: dow===1, isFriday: dow===5, isWeekend: dow===0 || dow===6, isOverride: hasOverride, isShortfall });
   }
   const result = { startStock, weekStart, days, model };
   projectionCache.set(key, result);
@@ -1200,10 +1203,12 @@ function renderDispoContinuous(){
         if (day.isWeekend) styles.push('background:#F7F5EE');
         const styleAttr = styles.length ? ` style="${styles.join(';')};"` : '';
         const overrideClass = day.isOverride ? ' override' : '';
+        const shortfallLine = day.isShortfall ? `<div class="cell-detail" style="color:var(--danger);font-weight:700;">Manque ${Math.round(day.rawStock)}</div>` : '';
         cells += `<td${styleAttr}>
           <input type="number" class="cell-stock-input ${cls}${overrideClass}" data-key="${key}" data-date="${day.date}" value="${Math.round(day.stock)}" title="${day.isOverride ? 'Comptage réel forcé — vide le champ pour revenir au calcul automatique' : 'Cliquer pour forcer un comptage réel ce jour-là'}">
           <div class="cell-detail">Prod +${Math.round(day.production)}</div>
           <div class="cell-detail">Vente -${Math.round(day.vente)} (${label})</div>
+          ${shortfallLine}
         </td>`;
         if (day.isFriday){
           cells += `<td style="background:#FAF7EE;border-left:2px solid var(--accent);">
